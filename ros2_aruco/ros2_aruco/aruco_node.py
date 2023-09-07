@@ -128,12 +128,18 @@ class ArucoNode(rclpy.node.Node):
             self.get_logger().error("valid options: {}".format(options))
 
         # Set up subscriptions
+        # self.info_sub = self.create_subscription(
+        #     CameraInfo, info_topic, self.info_callback, qos_profile_sensor_data
+        # )
         self.info_sub = self.create_subscription(
-            CameraInfo, info_topic, self.info_callback, qos_profile_sensor_data
+            CameraInfo, info_topic, self.info_callback, 10
         )
 
+        # self.create_subscription(
+        #     Image, image_topic, self.image_callback, qos_profile_sensor_data
+        # )
         self.create_subscription(
-            Image, image_topic, self.image_callback, qos_profile_sensor_data
+            Image, image_topic, self.image_callback, 10
         )
 
         # Set up publishers
@@ -150,6 +156,7 @@ class ArucoNode(rclpy.node.Node):
         self.bridge = CvBridge()
 
     def info_callback(self, info_msg):
+        self.get_logger().info("INFO CB")
         self.info_msg = info_msg
         self.intrinsic_mat = np.reshape(np.array(self.info_msg.k), (3, 3))
         self.distortion = np.array(self.info_msg.d)
@@ -157,6 +164,9 @@ class ArucoNode(rclpy.node.Node):
         self.destroy_subscription(self.info_sub)
 
     def image_callback(self, img_msg):
+        # self.get_logger().info("IMG CB")
+        # return
+
         if self.info_msg is None:
             self.get_logger().warn("No camera info has been received!")
             return
@@ -177,7 +187,11 @@ class ArucoNode(rclpy.node.Node):
         corners, marker_ids, rejected = cv2.aruco.detectMarkers(
             cv_image, self.aruco_dictionary, parameters=self.aruco_parameters
         )
+        # self.get_logger().info(f"corners: {corners}")
+        # self.get_logger().info(f"marker_ids: {marker_ids}")
+        # self.get_logger().info(f"rejected: {rejected}")
         if marker_ids is not None:
+            # self.get_logger().info("FOUND MARKER")
             if cv2.__version__ > "4.0.0":
                 rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(
                     corners, self.marker_size, self.intrinsic_mat, self.distortion
@@ -209,14 +223,14 @@ class ArucoNode(rclpy.node.Node):
             self.markers_pub.publish(markers)
 
 
-def main():
-    rclpy.init()
-    node = ArucoNode()
-    rclpy.spin(node)
+# def main():
+#     rclpy.init()
+#     node = ArucoNode()
+#     rclpy.spin(node)
 
-    node.destroy_node()
-    rclpy.shutdown()
+#     node.destroy_node()
+#     rclpy.shutdown()
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()

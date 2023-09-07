@@ -16,5 +16,6 @@
 
   <export>
     <build_type>ament_python</build_type>
+    <depend>ros2_aruco_interfaces</depend>
   </export>
 </package>
