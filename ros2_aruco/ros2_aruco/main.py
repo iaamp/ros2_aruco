@@ -14,7 +14,7 @@ from ros2_aruco.aruco_node import ArucoNode
 def main(args=None):
     rclpy.init(args=args)
 
-    executor = rclpy.executors.MultiThreadedExecutor()
+    executor = rclpy.executors.MultiThreadedExecutor(num_threads=2)
 
     aruco = ArucoNode()
 

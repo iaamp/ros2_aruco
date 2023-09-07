@@ -155,6 +155,8 @@ class ArucoNode(rclpy.node.Node):
         #     Image, image_topic, self.image_callback, 10
         # )
 
+        self.img_sub = None
+
         # Set up publishers
         self.poses_pub = self.create_publisher(PoseArray, "aruco_poses", 10)
         self.markers_pub = self.create_publisher(ArucoMarkers, "aruco_markers", 10)
@@ -244,6 +246,7 @@ class ArucoNode(rclpy.node.Node):
         return response
 
     def start(self):
+        self.get_logger().info("ArucoNode: start called")
         if (self.active):
             return True
         image_topic = (
@@ -256,9 +259,11 @@ class ArucoNode(rclpy.node.Node):
         return True
 
     def stop(self):
+        self.get_logger().info("ArucoNode: stop called")
         self.active = False
         if (self.img_sub):
             self.destroy_subscription(self.img_sub)
+            self.get_logger().info("ArucoNode: stop: img_sub destroyed")
         return True
 
 # def main():
