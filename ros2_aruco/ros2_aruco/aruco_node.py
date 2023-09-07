@@ -37,9 +37,9 @@ import tf_transformations
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseArray, Pose
+from std_srvs.srv import Trigger
 from ros2_aruco_interfaces.msg import ArucoMarkers
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
-
 
 class ArucoNode(rclpy.node.Node):
     def __init__(self):
@@ -127,6 +127,19 @@ class ArucoNode(rclpy.node.Node):
             options = "\n".join([s for s in dir(cv2.aruco) if s.startswith("DICT")])
             self.get_logger().error("valid options: {}".format(options))
 
+        self.start_srv = self.create_service(
+            Trigger,
+            'aruco/start',
+            self.start_cb)
+
+        self.stop_srv = self.create_service(
+            Trigger,
+            'aruco/stop',
+            self.stop_cb)
+
+        # Default not active
+        self.active = False
+
         # Set up subscriptions
         # self.info_sub = self.create_subscription(
         #     CameraInfo, info_topic, self.info_callback, qos_profile_sensor_data
@@ -138,9 +151,9 @@ class ArucoNode(rclpy.node.Node):
         # self.create_subscription(
         #     Image, image_topic, self.image_callback, qos_profile_sensor_data
         # )
-        self.create_subscription(
-            Image, image_topic, self.image_callback, 10
-        )
+        # self.img_sub = self.create_subscription(
+        #     Image, image_topic, self.image_callback, 10
+        # )
 
         # Set up publishers
         self.poses_pub = self.create_publisher(PoseArray, "aruco_poses", 10)
@@ -222,6 +235,31 @@ class ArucoNode(rclpy.node.Node):
             self.poses_pub.publish(pose_array)
             self.markers_pub.publish(markers)
 
+    def start_cb(self, request, response):
+        response.success = self.start()
+        return response
+
+    def stop_cb(self, request, response):
+        response.success = self.stop()
+        return response
+
+    def start(self):
+        if (self.active):
+            return True
+        image_topic = (
+            self.get_parameter("image_topic").get_parameter_value().string_value
+        )
+        self.img_sub = self.create_subscription(
+            Image, image_topic, self.image_callback, 10
+        )
+        self.active = True
+        return True
+
+    def stop(self):
+        self.active = False
+        if (self.img_sub):
+            self.destroy_subscription(self.img_sub)
+        return True
 
 # def main():
 #     rclpy.init()
