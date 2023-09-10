@@ -33,6 +33,7 @@ from rclpy.qos import qos_profile_sensor_data
 from cv_bridge import CvBridge
 import numpy as np
 import cv2
+import json
 import tf_transformations
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image
@@ -61,6 +62,15 @@ class ArucoNode(rclpy.node.Node):
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_STRING,
                 description="Dictionary that was used to generate markers.",
+            ),
+        )
+
+        self.declare_parameter(
+            name='marker_map',
+            value={},
+            descriptor=ParameterDescriptor(
+                type=ParameterType.PARAMETER_STRING,
+                description="Marker size map by marker ID.",
             ),
         )
 
@@ -100,6 +110,20 @@ class ArucoNode(rclpy.node.Node):
             self.get_parameter("aruco_dictionary_id").get_parameter_value().string_value
         )
         self.get_logger().info(f"Marker type: {dictionary_id_name}")
+
+        self.marker_map = self.get_parameter('marker_map').value or {}
+        """Map with custom sizes for markers by marker ID."""
+        # Deserialize the marker_map parameter
+        marker_map_str = self.get_parameter('marker_map').value
+        try:
+            marker_map_with_str_keys = json.loads(marker_map_str)
+            # Convert string keys to integers
+            self.marker_map = {int(k): v for k, v in marker_map_with_str_keys.items()}
+            self.get_logger().info(
+                f"Loaded marker map: {self.marker_map}")
+        except json.JSONDecodeError:
+            self.get_logger().error("Failed to parse marker_map parameter, using empty map.")
+            self.marker_map = {}
 
         image_topic = (
             self.get_parameter("image_topic").get_parameter_value().string_value
@@ -206,23 +230,25 @@ class ArucoNode(rclpy.node.Node):
         # self.get_logger().info(f"marker_ids: {marker_ids}")
         # self.get_logger().info(f"rejected: {rejected}")
         if marker_ids is not None:
-            # self.get_logger().info("FOUND MARKER")
-            if cv2.__version__ > "4.0.0":
-                rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(
-                    corners, self.marker_size, self.intrinsic_mat, self.distortion
-                )
-            else:
-                rvecs, tvecs = cv2.aruco.estimatePoseSingleMarkers(
-                    corners, self.marker_size, self.intrinsic_mat, self.distortion
-                )
             for i, marker_id in enumerate(marker_ids):
+                specific_marker_size = self.get_marker_size(marker_id[0])
+
+                if cv2.__version__ > "4.0.0":
+                    rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(
+                        [corners[i]], specific_marker_size, self.intrinsic_mat, self.distortion
+                    )
+                else:
+                    rvecs, tvecs = cv2.aruco.estimatePoseSingleMarkers(
+                        [corners[i]], specific_marker_size, self.intrinsic_mat, self.distortion
+                    )
+
                 pose = Pose()
-                pose.position.x = tvecs[i][0][0]
-                pose.position.y = tvecs[i][0][1]
-                pose.position.z = tvecs[i][0][2]
+                pose.position.x = tvecs[0][0][0]
+                pose.position.y = tvecs[0][0][1]
+                pose.position.z = tvecs[0][0][2]
 
                 rot_matrix = np.eye(4)
-                rot_matrix[0:3, 0:3] = cv2.Rodrigues(np.array(rvecs[i][0]))[0]
+                rot_matrix[0:3, 0:3] = cv2.Rodrigues(np.array(rvecs[0][0]))[0]
                 quat = tf_transformations.quaternion_from_matrix(rot_matrix)
 
                 pose.orientation.x = quat[0]
@@ -265,6 +291,11 @@ class ArucoNode(rclpy.node.Node):
             self.destroy_subscription(self.img_sub)
             self.get_logger().info("ArucoNode: stop: img_sub destroyed")
         return True
+
+    def get_marker_size(self, marker_id):
+        """Return the marker size for a given marker ID. If a custom size was
+        set for the marker_id, return that, else self.marker_size. """
+        return self.marker_map.get(marker_id, self.marker_size)
 
 # def main():
 #     rclpy.init()

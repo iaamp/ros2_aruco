@@ -11,6 +11,11 @@ def generate_launch_description():
         'aruco_parameters.yaml'
         )
 
+    marker_map_dict = {
+        1: 0.1,
+        2: 0.2
+    }
+
     aruco_node = Node(
         package='ros2_aruco',
         executable='aruco_node',
