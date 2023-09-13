@@ -67,7 +67,7 @@ class ArucoNode(rclpy.node.Node):
 
         self.declare_parameter(
             name='marker_map',
-            value={},
+            value="{}",
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_STRING,
                 description="Marker size map by marker ID.",
